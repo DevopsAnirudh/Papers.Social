@@ -1,0 +1,70 @@
+---
+- name: Set up Web Servers
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Docker
+      apt:
+        update_cache: yes
+        name: docker.io
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ansible user to docker group
+      user:
+        name: "{{ ansible_user }}"  # Use the Ansible user running the playbook
+        groups: docker
+        append: yes
+      become: yes  # Ensure it's run as a superuser
+
+    - name: Set permissions on Docker socket
+      file:
+        path: /var/run/docker.sock
+        mode: '0666'
+        owner: root
+        group: docker
+      become: yes
+
+    - name: Clone the Node.js web app from GitHub
+      git:
+        repo: 'https://github.com/artibhoir369/sample-node-app.git'
+        dest: /opt/webapp
+        force: yes
+      ignore_errors: yes  # Ensure correct permissions
+
+    - name: Install npm
+      apt:
+        name: npm
+        state: present
+        update_cache: yes
+
+    - name: Install prom-client using npm
+      npm:
+        name: prom-client
+        path: /opt/webapp  # Specify the directory where your package.json is located
+        state: present
+
+    - name: Build Docker image for the Node.js app
+      docker_image:
+        build:
+          path: /opt/webapp  # Path to the directory containing Dockerfile
+        name: sample-node-app
+        tag: latest
+        source: build
+        state: present  # Ensure the image is built
+
+    - name: Run the Node.js app in a Docker container
+      docker_container:
+        name: node-webapp
+        image: sample-node-app:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "3000:3000"
+
