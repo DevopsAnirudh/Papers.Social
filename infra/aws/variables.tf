@@ -19,6 +19,6 @@ variable "instance_type" {
 variable "key_name" {
   description = "SSH key pair name for EC2 instance"
   type        = string
-  default     = "onelab"
+  default     = "ec2-github"
 
 }
